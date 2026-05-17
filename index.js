@@ -122,19 +122,36 @@ async function sendMessage(recipientId, text) {
 
 cron.schedule("0 * * * *", async () => {
 
-  console.log("Sending adhkar...");
+  try {
 
-  const snapshot =
-    await db.collection("subscribers").get();
+    console.log("Sending adhkar...");
 
-  const dhikr = randomDhikr();
+    const snapshot =
+      await db.collection("subscribers").get();
 
-  for (const doc of snapshot.docs) {
+    const dhikr = randomDhikr();
 
-    await sendMessage(doc.id, dhikr);
+    for (const doc of snapshot.docs) {
+
+      await sendMessage(doc.id, dhikr);
+    }
+
+    await axios.post(
+      `https://graph.facebook.com/v19.0/me/feed`,
+      {
+        message: dhikr,
+        access_token: PAGE_ACCESS_TOKEN
+      }
+    );
+
+    console.log("Done");
+
+  } catch (error) {
+
+    console.log(
+      error.response?.data || error.message
+    );
   }
-
-  console.log("Done");
 });
 
 const PORT = process.env.PORT || 3000;
