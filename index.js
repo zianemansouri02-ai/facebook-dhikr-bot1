@@ -18,7 +18,7 @@ const app = express();
 
 app.use(bodyParser.json());
 
-const PAGE_ACCESS_TOKEN = "EAASZAJj8R77UBRegzx7l2AjgT9qPFcDm7rh1NfwsUH1UlxuKF17ThdEcjVxreSPTfvxZBAkInAb3D9fmCSYg2XC5WtxQ8UIjVF7l5laqXUZABqnhKrnzuW4VZCpNh3enfD8HPT3uz8JCKwfYmum8Jh2ZA6CO5U7yUMTWTSDPpSQ3ZBF1xpSOxkZBnhzZCt7kTq5OUwteC6zS4wZDZD";
+const PAGE_ACCESS_TOKEN = process.env.PAGE_ACCESS_TOKEN;
 const VERIFY_TOKEN = "verify_token";
 const azkar = JSON.parse(
   fs.readFileSync("adhkar.json", "utf8")
