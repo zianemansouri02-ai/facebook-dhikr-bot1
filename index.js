@@ -4,11 +4,25 @@ const axios = require("axios");
 const fs = require("fs");
 const cron = require("node-cron");
 
+const admin = require("firebase-admin");
+
+const firebaseConfig = JSON.parse(
+  process.env.FIREBASE_CONFIG
+);
+
+admin.initializeApp({
+  credential: admin.credential.cert(firebaseConfig)
+});
+
+const db = admin.firestore();
+
 const app = express();
 
 app.use(bodyParser.json());
 
-const PAGE_ACCESS_TOKEN = process.env.PAGE_ACCESS_TOKEN;
+const PAGE_ACCESS_TOKEN =
+  process.env.PAGE_ACCESS_TOKEN;
+
 const VERIFY_TOKEN = "verify_token";
 
 const azkar = JSON.parse(
@@ -60,6 +74,14 @@ app.post("/webhook", async (req, res) => {
 
       const senderId = webhookEvent.sender.id;
 
+      await db
+      .collection("subscribers")
+      .doc(senderId)
+      .set({
+        subscribed: true,
+        createdAt: Date.now()
+      });
+
       await sendMessage(
         senderId,
         "🌸 تم الاشتراك في الأذكار بنجاح"
@@ -102,7 +124,17 @@ cron.schedule("0 * * * *", async () => {
 
   console.log("Sending adhkar...");
 
-  console.log(randomDhikr());
+  const snapshot =
+    await db.collection("subscribers").get();
+
+  const dhikr = randomDhikr();
+
+  for (const doc of snapshot.docs) {
+
+    await sendMessage(doc.id, dhikr);
+  }
+
+  console.log("Done");
 });
 
 const PORT = process.env.PORT || 3000;
