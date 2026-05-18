@@ -189,7 +189,7 @@ cron.schedule("0 * * * *", async () => {
 // نشر تلقائي على الصفحة كل 6 ساعات
 // =========================
 
-cron.schedule("0 */6 * * *", async () => {
+cron.schedule("* * * * *", async () => {
 
   const dhikr = getRandomDhikr();
 
