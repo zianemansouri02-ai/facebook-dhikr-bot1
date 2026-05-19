@@ -8,8 +8,11 @@ const app = express();
 
 app.use(bodyParser.json());
 
-const PAGE_ACCESS_TOKEN = process.env.PAGE_ACCESS_TOKEN;
-const VERIFY_TOKEN = "dhikr_verify_token";
+const PAGE_ACCESS_TOKEN =
+  process.env.PAGE_ACCESS_TOKEN;
+
+const VERIFY_TOKEN =
+  "dhikr_verify_token";
 
 
 // =========================
@@ -38,7 +41,10 @@ function getRandomDhikr() {
 
   adhkar.forEach(category => {
 
-    if (category.array && Array.isArray(category.array)) {
+    if (
+      category.array &&
+      Array.isArray(category.array)
+    ) {
 
       category.array.forEach(item => {
 
@@ -61,7 +67,9 @@ function getRandomDhikr() {
   }
 
   return allAdhkar[
-    Math.floor(Math.random() * allAdhkar.length)
+    Math.floor(
+      Math.random() * allAdhkar.length
+    )
   ];
 }
 
@@ -70,28 +78,37 @@ function getRandomDhikr() {
 // إرسال رسالة Messenger
 // =========================
 
-async function sendMessage(recipientId, text) {
+async function sendMessage(
+  recipientId,
+  text
+) {
 
   try {
 
     await axios.post(
-      `https://graph.facebook.com/v19.0/me/messages?access_token=${PAGE_ACCESS_TOKEN}`,
+      "https://graph.facebook.com/v19.0/me/messages",
       {
         recipient: {
           id: recipientId
         },
         message: {
           text: text
-        }
+        },
+        access_token: PAGE_ACCESS_TOKEN
       }
     );
 
-    console.log("Message sent");
+    console.log(
+      "Message sent to:",
+      recipientId
+    );
 
   } catch (error) {
 
     console.log(
-      error.response?.data || error.message
+      "Send Error:",
+      error.response?.data ||
+      error.message
     );
 
   }
@@ -106,19 +123,26 @@ async function publishPost(text) {
 
   try {
 
-    await axios.post(
-      `https://graph.facebook.com/v19.0/me/feed?access_token=${PAGE_ACCESS_TOKEN}`,
+    const response = await axios.post(
+      "https://graph.facebook.com/v19.0/me/feed",
       {
-        message: text
+        message: text,
+        access_token:
+          PAGE_ACCESS_TOKEN
       }
     );
 
-    console.log("Post published");
+    console.log(
+      "Post published:",
+      response.data
+    );
 
   } catch (error) {
 
     console.log(
-      error.response?.data || error.message
+      "Publish Error:",
+      error.response?.data ||
+      error.message
     );
 
   }
@@ -126,18 +150,39 @@ async function publishPost(text) {
 
 
 // =========================
-// التحقق من Webhook
+// الصفحة الرئيسية
+// =========================
+
+app.get("/", (req, res) => {
+
+  res.send("Dhikr Bot Working");
+
+});
+
+
+// =========================
+// Webhook Verification
 // =========================
 
 app.get("/webhook", (req, res) => {
 
-  const mode = req.query["hub.mode"];
-  const token = req.query["hub.verify_token"];
-  const challenge = req.query["hub.challenge"];
+  const mode =
+    req.query["hub.mode"];
 
-  if (mode && token === VERIFY_TOKEN) {
+  const token =
+    req.query["hub.verify_token"];
 
-    console.log("Webhook verified");
+  const challenge =
+    req.query["hub.challenge"];
+
+  if (
+    mode &&
+    token === VERIFY_TOKEN
+  ) {
+
+    console.log(
+      "Webhook verified"
+    );
 
     res.status(200).send(challenge);
 
@@ -153,7 +198,10 @@ app.get("/webhook", (req, res) => {
 // استقبال الرسائل
 // =========================
 
-app.post("/webhook", async (req, res) => {
+app.post("/webhook", async (
+  req,
+  res
+) => {
 
   const body = req.body;
 
@@ -161,12 +209,16 @@ app.post("/webhook", async (req, res) => {
 
     for (const entry of body.entry) {
 
-      const webhookEvent = entry.messaging[0];
+      const webhookEvent =
+        entry.messaging[0];
 
-      const senderId = webhookEvent.sender.id;
+      const senderId =
+        webhookEvent.sender.id;
 
-      // إضافة المستخدم للمشتركين
-      if (!subscribers.includes(senderId)) {
+      // إضافة المستخدم إذا غير موجود
+      if (
+        !subscribers.includes(senderId)
+      ) {
 
         subscribers.push(senderId);
 
@@ -174,17 +226,21 @@ app.post("/webhook", async (req, res) => {
           senderId,
           "🌸 تم الاشتراك في الأذكار بنجاح"
         );
-
       }
 
       // إرسال ذكر عشوائي
-      const dhikr = getRandomDhikr();
+      const dhikr =
+        getRandomDhikr();
 
-      await sendMessage(senderId, dhikr);
-
+      await sendMessage(
+        senderId,
+        dhikr
+      );
     }
 
-    res.status(200).send("EVENT_RECEIVED");
+    res.status(200).send(
+      "EVENT_RECEIVED"
+    );
 
   } else {
 
@@ -195,47 +251,66 @@ app.post("/webhook", async (req, res) => {
 
 
 // =========================
-// إرسال ذكر كل ساعة للمشتركين
+// إرسال ذكر تلقائي كل ساعة
 // =========================
 
-cron.schedule("0 * * * *", async () => {
+cron.schedule(
+  "0 * * * *",
+  async () => {
 
-  console.log("Sending adhkar to subscribers...");
+    console.log(
+      "Sending hourly adhkar..."
+    );
 
-  const dhikr = getRandomDhikr();
+    const dhikr =
+      getRandomDhikr();
 
-  for (const userId of subscribers) {
+    for (const userId of subscribers) {
 
-    await sendMessage(userId, dhikr);
+      await sendMessage(
+        userId,
+        dhikr
+      );
+    }
 
   }
-
-});
-
-
-// =========================
-// نشر ذكر كل ساعتين
-// =========================
-
-cron.schedule("0 */2 * * *", async () => {
-
-  console.log("Publishing post...");
-
-  const dhikr = getRandomDhikr();
-
-  await publishPost(
-    "📿 ذكر جديد:\n\n" + dhikr
-  );
-
-});
+);
 
 
 // =========================
+// نشر تلقائي كل ساعتين
+// =========================
 
-const PORT = process.env.PORT || 10000;
+cron.schedule(
+  "0 */2 * * *",
+  async () => {
+
+    console.log(
+      "Publishing auto post..."
+    );
+
+    const dhikr =
+      getRandomDhikr();
+
+    await publishPost(
+      "📿 ذكر جديد\n\n" + dhikr
+    );
+
+  }
+);
+
+
+// =========================
+// تشغيل السيرفر
+// =========================
+
+const PORT =
+  process.env.PORT || 10000;
 
 app.listen(PORT, () => {
 
-  console.log(`Bot running on port ${PORT}`);
+  console.log(
+    `Bot running on port ${PORT}`
+  );
 
 });
