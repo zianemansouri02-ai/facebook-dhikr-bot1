@@ -4,6 +4,18 @@ const axios = require("axios");
 const fs = require("fs");
 const cron = require("node-cron");
 
+const admin = require("firebase-admin");
+
+const firebaseConfig = JSON.parse(
+  process.env.FIREBASE_CONFIG
+);
+
+admin.initializeApp({
+  credential: admin.credential.cert(firebaseConfig)
+});
+
+const db = admin.firestore();
+
 const app = express();
 
 app.use(bodyParser.json());
@@ -22,13 +34,6 @@ const VERIFY_TOKEN =
 const adhkar = JSON.parse(
   fs.readFileSync("./adhkar.json", "utf8")
 );
-
-
-// =========================
-// المشتركين
-// =========================
-
-let subscribers = [];
 
 
 // =========================
@@ -97,14 +102,14 @@ async function sendMessage(
       },
       {
         params: {
-          access_token:
-            PAGE_ACCESS_TOKEN
+          access_token: PAGE_ACCESS_TOKEN
         }
       }
     );
 
     console.log(
-      "Message sent"
+      "Message sent to:",
+      recipientId
     );
 
   } catch (error) {
@@ -120,58 +125,18 @@ async function sendMessage(
 
 
 // =========================
-// نشر منشور
-// =========================
-
-async function publishPost(text) {
-
-  try {
-
-    const response = await axios.post(
-      "https://graph.facebook.com/v19.0/me/feed",
-      {
-        message: text
-      },
-      {
-        params: {
-          access_token:
-            PAGE_ACCESS_TOKEN
-        }
-      }
-    );
-
-    console.log(
-      "Post published:",
-      response.data
-    );
-
-  } catch (error) {
-
-    console.log(
-      "Publish Error:",
-      error.response?.data ||
-      error.message
-    );
-
-  }
-}
-
-
-// =========================
 // الصفحة الرئيسية
 // =========================
 
 app.get("/", (req, res) => {
 
-  res.send(
-    "Dhikr Bot Working"
-  );
+  res.send("Dhikr Bot Working");
 
 });
 
 
 // =========================
-// Webhook Verify
+// Webhook Verification
 // =========================
 
 app.get("/webhook", (req, res) => {
@@ -194,9 +159,7 @@ app.get("/webhook", (req, res) => {
       "Webhook verified"
     );
 
-    res.status(200).send(
-      challenge
-    );
+    res.status(200).send(challenge);
 
   } else {
 
@@ -210,64 +173,58 @@ app.get("/webhook", (req, res) => {
 // استقبال الرسائل
 // =========================
 
-app.post(
-  "/webhook",
-  async (req, res) => {
+app.post("/webhook", async (
+  req,
+  res
+) => {
 
-    const body = req.body;
+  const body = req.body;
 
-    if (
-      body.object === "page"
-    ) {
+  if (body.object === "page") {
 
-      for (
-        const entry of body.entry
-      ) {
+    for (const entry of body.entry) {
 
-        const webhookEvent =
-          entry.messaging[0];
+      const webhookEvent =
+        entry.messaging[0];
 
-        const senderId =
-          webhookEvent.sender.id;
+      const senderId =
+        webhookEvent.sender.id;
 
-        // إضافة المستخدم
-        if (
-          !subscribers.includes(
-            senderId
-          )
-        ) {
+      // حفظ المشترك في Firebase
+      await db
+        .collection("subscribers")
+        .doc(senderId)
+        .set({
+          subscribed: true,
+          createdAt: Date.now()
+        });
 
-          subscribers.push(
-            senderId
-          );
-
-          await sendMessage(
-            senderId,
-            "🌸 تم الاشتراك في الأذكار بنجاح"
-          );
-        }
-
-        // إرسال ذكر عشوائي
-        const dhikr =
-          getRandomDhikr();
-
-        await sendMessage(
-          senderId,
-          dhikr
-        );
-      }
-
-      res.status(200).send(
-        "EVENT_RECEIVED"
+      console.log(
+        "Subscriber saved:",
+        senderId
       );
 
-    } else {
+      // إرسال ذكر مباشر
+      const dhikr =
+        getRandomDhikr();
 
-      res.sendStatus(404);
-
+      await sendMessage(
+        senderId,
+        "🌸 تم الاشتراك بنجاح\n\n" +
+        dhikr
+      );
     }
+
+    res.status(200).send(
+      "EVENT_RECEIVED"
+    );
+
+  } else {
+
+    res.sendStatus(404);
+
   }
-);
+});
 
 
 // =========================
@@ -279,45 +236,29 @@ cron.schedule(
   async () => {
 
     console.log(
-      "Sending adhkar..."
+      "Sending adhkar to subscribers..."
     );
+
+    const snapshot =
+      await db
+      .collection("subscribers")
+      .get();
 
     const dhikr =
       getRandomDhikr();
 
-    for (
-      const userId of subscribers
-    ) {
+    for (const doc of snapshot.docs) {
+
+      const userId = doc.id;
 
       await sendMessage(
         userId,
         dhikr
       );
-
     }
 
-  }
-);
-
-
-// =========================
-// نشر تلقائي كل دقيقة
-// =========================
-
-cron.schedule(
-  "* * * * *",
-  async () => {
-
     console.log(
-      "Publishing post..."
-    );
-
-    const dhikr =
-      getRandomDhikr();
-
-    await publishPost(
-      "📿 ذكر جديد\n\n" +
-      dhikr
+      "All adhkar sent"
     );
 
   }
