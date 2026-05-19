@@ -34,22 +34,40 @@ let subscribers = [];
 
 function getRandomDhikr() {
 
-  const categories = Object.keys(adhkar);
+  let allAdhkar = [];
 
-  const randomCategory =
-    categories[Math.floor(Math.random() * categories.length)];
+  adhkar.forEach(category => {
 
-  const items = adhkar[randomCategory];
+    if (category.array && Array.isArray(category.array)) {
 
-  const randomItem =
-    items[Math.floor(Math.random() * items.length)];
+      category.array.forEach(item => {
 
-  return randomItem.zekr || "سبحان الله";
+        if (item.text) {
+
+          allAdhkar.push(item.text);
+
+        }
+
+      });
+
+    }
+
+  });
+
+  if (allAdhkar.length === 0) {
+
+    return "سبحان الله";
+
+  }
+
+  return allAdhkar[
+    Math.floor(Math.random() * allAdhkar.length)
+  ];
 }
 
 
 // =========================
-// إرسال رسالة
+// إرسال رسالة Messenger
 // =========================
 
 async function sendMessage(recipientId, text) {
@@ -68,16 +86,20 @@ async function sendMessage(recipientId, text) {
       }
     );
 
+    console.log("Message sent");
+
   } catch (error) {
 
-    console.log(error.response?.data || error.message);
+    console.log(
+      error.response?.data || error.message
+    );
 
   }
 }
 
 
 // =========================
-// نشر على الصفحة
+// نشر منشور في الصفحة
 // =========================
 
 async function publishPost(text) {
@@ -95,14 +117,16 @@ async function publishPost(text) {
 
   } catch (error) {
 
-    console.log(error.response?.data || error.message);
+    console.log(
+      error.response?.data || error.message
+    );
 
   }
 }
 
 
 // =========================
-// Webhook Verify
+// التحقق من Webhook
 // =========================
 
 app.get("/webhook", (req, res) => {
@@ -112,6 +136,8 @@ app.get("/webhook", (req, res) => {
   const challenge = req.query["hub.challenge"];
 
   if (mode && token === VERIFY_TOKEN) {
+
+    console.log("Webhook verified");
 
     res.status(200).send(challenge);
 
@@ -139,7 +165,7 @@ app.post("/webhook", async (req, res) => {
 
       const senderId = webhookEvent.sender.id;
 
-      // إضافة المستخدم إن لم يكن موجود
+      // إضافة المستخدم للمشتركين
       if (!subscribers.includes(senderId)) {
 
         subscribers.push(senderId);
@@ -148,12 +174,14 @@ app.post("/webhook", async (req, res) => {
           senderId,
           "🌸 تم الاشتراك في الأذكار بنجاح"
         );
+
       }
 
       // إرسال ذكر عشوائي
       const dhikr = getRandomDhikr();
 
       await sendMessage(senderId, dhikr);
+
     }
 
     res.status(200).send("EVENT_RECEIVED");
@@ -167,12 +195,12 @@ app.post("/webhook", async (req, res) => {
 
 
 // =========================
-// إرسال أذكار تلقائيًا كل ساعة
+// إرسال ذكر كل ساعة للمشتركين
 // =========================
 
 cron.schedule("0 * * * *", async () => {
 
-  console.log("Sending adhkar...");
+  console.log("Sending adhkar to subscribers...");
 
   const dhikr = getRandomDhikr();
 
@@ -186,14 +214,18 @@ cron.schedule("0 * * * *", async () => {
 
 
 // =========================
-// نشر تلقائي على الصفحة كل 6 ساعات
+// نشر ذكر كل ساعتين
 // =========================
 
 cron.schedule("0 */2 * * *", async () => {
 
+  console.log("Publishing post...");
+
   const dhikr = getRandomDhikr();
 
-  await publishPost("📿 ذكر اليوم:\n\n" + dhikr);
+  await publishPost(
+    "📿 ذكر جديد:\n\n" + dhikr
+  );
 
 });
 
