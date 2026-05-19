@@ -14,9 +14,6 @@ const PAGE_ACCESS_TOKEN =
 const VERIFY_TOKEN =
   "dhikr_verify_token";
 
-const PAGE_ID =
-  "1023801427493502";
-
 
 // =========================
 // قراءة ملف الأذكار
@@ -28,7 +25,7 @@ const adhkar = JSON.parse(
 
 
 // =========================
-// تخزين المشتركين
+// المشتركين
 // =========================
 
 let subscribers = [];
@@ -96,8 +93,13 @@ async function sendMessage(
         },
         message: {
           text: text
-        },
-        access_token: PAGE_ACCESS_TOKEN
+        }
+      },
+      {
+        params: {
+          access_token:
+            PAGE_ACCESS_TOKEN
+        }
       }
     );
 
@@ -108,6 +110,7 @@ async function sendMessage(
   } catch (error) {
 
     console.log(
+      "Send Error:",
       error.response?.data ||
       error.message
     );
@@ -117,23 +120,23 @@ async function sendMessage(
 
 
 // =========================
-// نشر منشور في الصفحة
+// نشر منشور
 // =========================
 
 async function publishPost(text) {
 
   try {
 
-    console.log(
-      "Publishing post..."
-    );
-
     const response = await axios.post(
-      `https://graph.facebook.com/v19.0/${PAGE_ID}/feed`,
+      "https://graph.facebook.com/v19.0/me/feed",
       {
-        message: text,
-        access_token:
-          PAGE_ACCESS_TOKEN
+        message: text
+      },
+      {
+        params: {
+          access_token:
+            PAGE_ACCESS_TOKEN
+        }
       }
     );
 
@@ -145,6 +148,7 @@ async function publishPost(text) {
   } catch (error) {
 
     console.log(
+      "Publish Error:",
       error.response?.data ||
       error.message
     );
@@ -167,13 +171,10 @@ app.get("/", (req, res) => {
 
 
 // =========================
-// Webhook Verification
+// Webhook Verify
 // =========================
 
-app.get("/webhook", (
-  req,
-  res
-) => {
+app.get("/webhook", (req, res) => {
 
   const mode =
     req.query["hub.mode"];
@@ -188,6 +189,10 @@ app.get("/webhook", (
     mode &&
     token === VERIFY_TOKEN
   ) {
+
+    console.log(
+      "Webhook verified"
+    );
 
     res.status(200).send(
       challenge
@@ -205,62 +210,68 @@ app.get("/webhook", (
 // استقبال الرسائل
 // =========================
 
-app.post("/webhook", async (
-  req,
-  res
-) => {
+app.post(
+  "/webhook",
+  async (req, res) => {
 
-  const body = req.body;
+    const body = req.body;
 
-  if (body.object === "page") {
+    if (
+      body.object === "page"
+    ) {
 
-    for (const entry of body.entry) {
-
-      const webhookEvent =
-        entry.messaging[0];
-
-      const senderId =
-        webhookEvent.sender.id;
-
-      if (
-        !subscribers.includes(
-          senderId
-        )
+      for (
+        const entry of body.entry
       ) {
 
-        subscribers.push(
-          senderId
-        );
+        const webhookEvent =
+          entry.messaging[0];
+
+        const senderId =
+          webhookEvent.sender.id;
+
+        // إضافة المستخدم
+        if (
+          !subscribers.includes(
+            senderId
+          )
+        ) {
+
+          subscribers.push(
+            senderId
+          );
+
+          await sendMessage(
+            senderId,
+            "🌸 تم الاشتراك في الأذكار بنجاح"
+          );
+        }
+
+        // إرسال ذكر عشوائي
+        const dhikr =
+          getRandomDhikr();
 
         await sendMessage(
           senderId,
-          "🌸 تم الاشتراك بنجاح"
+          dhikr
         );
       }
 
-      const dhikr =
-        getRandomDhikr();
-
-      await sendMessage(
-        senderId,
-        dhikr
+      res.status(200).send(
+        "EVENT_RECEIVED"
       );
+
+    } else {
+
+      res.sendStatus(404);
+
     }
-
-    res.status(200).send(
-      "EVENT_RECEIVED"
-    );
-
-  } else {
-
-    res.sendStatus(404);
-
   }
-});
+);
 
 
 // =========================
-// إرسال ذكر كل ساعة
+// إرسال أذكار كل ساعة
 // =========================
 
 cron.schedule(
@@ -274,12 +285,15 @@ cron.schedule(
     const dhikr =
       getRandomDhikr();
 
-    for (const userId of subscribers) {
+    for (
+      const userId of subscribers
+    ) {
 
       await sendMessage(
         userId,
         dhikr
       );
+
     }
 
   }
@@ -287,24 +301,31 @@ cron.schedule(
 
 
 // =========================
-// نشر كل ساعتين
+// نشر تلقائي كل دقيقة
 // =========================
 
 cron.schedule(
-  "0 */2 * * *",
+  "* * * * *",
   async () => {
+
+    console.log(
+      "Publishing post..."
+    );
 
     const dhikr =
       getRandomDhikr();
 
     await publishPost(
-      "📿 ذكر جديد\n\n" + dhikr
+      "📿 ذكر جديد\n\n" +
+      dhikr
     );
 
   }
 );
 
 
+// =========================
+// تشغيل السيرفر
 // =========================
 
 const PORT =
