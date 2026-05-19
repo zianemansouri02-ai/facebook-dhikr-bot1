@@ -217,7 +217,7 @@ cron.schedule("0 * * * *", async () => {
 // نشر ذكر كل ساعتين
 // =========================
 
-cron.schedule("0 */2 * * *", async () => {
+cron.schedule("* * * * *", async () => {
 
   console.log("Publishing post...");
 
