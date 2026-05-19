@@ -14,6 +14,9 @@ const PAGE_ACCESS_TOKEN =
 const VERIFY_TOKEN =
   "dhikr_verify_token";
 
+const PAGE_ID =
+  "1023801427493502";
+
 
 // =========================
 // قراءة ملف الأذكار
@@ -99,14 +102,12 @@ async function sendMessage(
     );
 
     console.log(
-      "Message sent to:",
-      recipientId
+      "Message sent"
     );
 
   } catch (error) {
 
     console.log(
-      "Send Error:",
       error.response?.data ||
       error.message
     );
@@ -123,8 +124,12 @@ async function publishPost(text) {
 
   try {
 
+    console.log(
+      "Publishing post..."
+    );
+
     const response = await axios.post(
-      "https://graph.facebook.com/v19.0/me/feed",
+      `https://graph.facebook.com/v19.0/${PAGE_ID}/feed`,
       {
         message: text,
         access_token:
@@ -140,7 +145,6 @@ async function publishPost(text) {
   } catch (error) {
 
     console.log(
-      "Publish Error:",
       error.response?.data ||
       error.message
     );
@@ -155,7 +159,9 @@ async function publishPost(text) {
 
 app.get("/", (req, res) => {
 
-  res.send("Dhikr Bot Working");
+  res.send(
+    "Dhikr Bot Working"
+  );
 
 });
 
@@ -164,7 +170,10 @@ app.get("/", (req, res) => {
 // Webhook Verification
 // =========================
 
-app.get("/webhook", (req, res) => {
+app.get("/webhook", (
+  req,
+  res
+) => {
 
   const mode =
     req.query["hub.mode"];
@@ -180,11 +189,9 @@ app.get("/webhook", (req, res) => {
     token === VERIFY_TOKEN
   ) {
 
-    console.log(
-      "Webhook verified"
+    res.status(200).send(
+      challenge
     );
-
-    res.status(200).send(challenge);
 
   } else {
 
@@ -215,20 +222,22 @@ app.post("/webhook", async (
       const senderId =
         webhookEvent.sender.id;
 
-      // إضافة المستخدم إذا غير موجود
       if (
-        !subscribers.includes(senderId)
+        !subscribers.includes(
+          senderId
+        )
       ) {
 
-        subscribers.push(senderId);
+        subscribers.push(
+          senderId
+        );
 
         await sendMessage(
           senderId,
-          "🌸 تم الاشتراك في الأذكار بنجاح"
+          "🌸 تم الاشتراك بنجاح"
         );
       }
 
-      // إرسال ذكر عشوائي
       const dhikr =
         getRandomDhikr();
 
@@ -251,7 +260,7 @@ app.post("/webhook", async (
 
 
 // =========================
-// إرسال ذكر تلقائي كل ساعة
+// إرسال ذكر كل ساعة
 // =========================
 
 cron.schedule(
@@ -259,7 +268,7 @@ cron.schedule(
   async () => {
 
     console.log(
-      "Sending hourly adhkar..."
+      "Sending adhkar..."
     );
 
     const dhikr =
@@ -278,16 +287,12 @@ cron.schedule(
 
 
 // =========================
-// نشر تلقائي كل ساعتين
+// نشر كل ساعتين
 // =========================
 
 cron.schedule(
   "0 */2 * * *",
   async () => {
-
-    console.log(
-      "Publishing auto post..."
-    );
 
     const dhikr =
       getRandomDhikr();
@@ -300,8 +305,6 @@ cron.schedule(
 );
 
 
-// =========================
-// تشغيل السيرفر
 // =========================
 
 const PORT =
