@@ -3,6 +3,26 @@ const TelegramBot = require('node-telegram-bot-api');
 const fs = require('fs');
 const cron = require('node-cron');
 const path = require('path');
+const admin = require('firebase-admin');
+
+
+// =======================
+// Firebase
+// =======================
+
+const serviceAccount = require(
+  './serviceAccountKey.json'
+);
+
+admin.initializeApp({
+  credential:
+    admin.credential.cert(
+      serviceAccount
+    )
+});
+
+const db =
+  admin.firestore();
 
 
 // =======================
@@ -45,7 +65,7 @@ const bot = new TelegramBot(
 
 
 // =======================
-// تنظيف الجلسات القديمة
+// تشغيل البوت
 // =======================
 
 async function startBot() {
@@ -92,6 +112,42 @@ const adhkar =
 // =======================
 
 let subscribers = [];
+
+
+// =======================
+// تحميل المشتركين
+// =======================
+
+async function loadSubscribers() {
+
+  try {
+
+    const snapshot =
+      await db
+        .collection('subscribers')
+        .get();
+
+    snapshot.forEach(doc => {
+
+      subscribers.push(
+        doc.data().chatId
+      );
+
+    });
+
+    console.log(
+      `Loaded ${subscribers.length} subscribers`
+    );
+
+  } catch (err) {
+
+    console.log(err);
+
+  }
+
+}
+
+loadSubscribers();
 
 
 // =======================
@@ -194,26 +250,44 @@ function getRandomAudio() {
 // /start
 // =======================
 
-bot.onText(/\/start/, msg => {
+bot.onText(
+  /\/start/,
+  async msg => {
 
-  const chatId =
-    msg.chat.id;
+    const chatId =
+      msg.chat.id;
 
-  if (
-    !subscribers.includes(chatId)
-  ) {
+    if (
+      !subscribers.includes(chatId)
+    ) {
 
-    subscribers.push(chatId);
+      subscribers.push(chatId);
+
+      try {
+
+        await db
+          .collection('subscribers')
+          .doc(chatId.toString())
+          .set({
+            chatId
+          });
+
+      } catch (err) {
+
+        console.log(err);
+
+      }
+
+    }
+
+    bot.sendMessage(
+      chatId,
+      '🌸 تم الاشتراك بنجاح\n\n' +
+      'سيتم إرسال الأذكار والمقاطع الصوتية تلقائيًا ❤️'
+    );
 
   }
-
-  bot.sendMessage(
-    chatId,
-    '🌸 تم الاشتراك بنجاح\n\n' +
-    'سيتم إرسال الأذكار والمقاطع الصوتية تلقائيًا ❤️'
-  );
-
-});
+);
 
 
 // =======================
@@ -222,7 +296,7 @@ bot.onText(/\/start/, msg => {
 
 cron.schedule(
   '0 */2 * * *',
-  () => {
+  async () => {
 
     console.log(
       'Sending text adhkar...'
@@ -232,13 +306,21 @@ cron.schedule(
       getRandomDhikr();
 
     subscribers.forEach(
-      chatId => {
+      async chatId => {
 
-        bot.sendMessage(
-          chatId,
-          '🌸 ذكر جديد\n\n' +
-          dhikr
-        );
+        try {
+
+          await bot.sendMessage(
+            chatId,
+            '🌸 ذكر جديد\n\n' +
+            dhikr
+          );
+
+        } catch (err) {
+
+          console.log(err);
+
+        }
 
       }
     );
@@ -253,7 +335,7 @@ cron.schedule(
 
 cron.schedule(
   '0 1-23/2 * * *',
-  () => {
+  async () => {
 
     console.log(
       'Sending audio adhkar...'
@@ -263,16 +345,24 @@ cron.schedule(
       getRandomAudio();
 
     subscribers.forEach(
-      chatId => {
+      async chatId => {
 
-        bot.sendAudio(
-          chatId,
-          audioFile,
-          {
-            caption:
-              '🎧 استمع لهذا الذكر'
-          }
-        );
+        try {
+
+          await bot.sendAudio(
+            chatId,
+            audioFile,
+            {
+              caption:
+                '🎧 استمع لهذا الذكر'
+            }
+          );
+
+        } catch (err) {
+
+          console.log(err);
+
+        }
 
       }
     );
