@@ -1,38 +1,57 @@
 const TelegramBot = require('node-telegram-bot-api');
 const fs = require('fs');
 const cron = require('node-cron');
+const path = require('path');
+
+
+// =======================
+// TOKEN
+// =======================
 
 const TOKEN =
 '8755315321:AAFrcFqGZC1vWiOB9JhPd5zpBt7k9TKLWEc';
 
-const bot = new TelegramBot(TOKEN, {
-  polling: true
-});
 
+// =======================
+// تشغيل البوت
+// =======================
 
-// =========================
-// قراءة ملف الأذكار
-// =========================
-
-const adhkar = JSON.parse(
-  fs.readFileSync('./adhkar.json', 'utf8')
+const bot = new TelegramBot(
+  TOKEN,
+  {
+    polling: true
+  }
 );
 
 
-// =========================
+// =======================
+// قراءة ملف الأذكار
+// =======================
+
+const rawData =
+  fs.readFileSync(
+    './adhkar.json',
+    'utf8'
+  );
+
+const adhkar =
+  JSON.parse(rawData);
+
+
+// =======================
 // المشتركين
-// =========================
+// =======================
 
 let subscribers = [];
 
 
-// =========================
-// جلب ذكر عشوائي
-// =========================
+// =======================
+// استخراج جميع الأذكار
+// =======================
 
-function getRandomDhikr() {
+function extractAllAdhkar() {
 
-  let allAdhkar = [];
+  let all = [];
 
   adhkar.forEach(category => {
 
@@ -45,7 +64,7 @@ function getRandomDhikr() {
 
         if (item.text) {
 
-          allAdhkar.push(item.text);
+          all.push(item.text);
 
         }
 
@@ -55,92 +74,204 @@ function getRandomDhikr() {
 
   });
 
-  if (allAdhkar.length === 0) {
+  return all;
+
+}
+
+const allAdhkar =
+  extractAllAdhkar();
+
+
+// =======================
+// ذكر عشوائي
+// =======================
+
+function getRandomDhikr() {
+
+  if (
+    !allAdhkar ||
+    allAdhkar.length === 0
+  ) {
 
     return 'سبحان الله';
 
   }
 
-  return allAdhkar[
+  const randomIndex =
     Math.floor(
-      Math.random() * allAdhkar.length
-    )
-  ];
+      Math.random() *
+      allAdhkar.length
+    );
+
+  return allAdhkar[randomIndex];
+
 }
 
 
-// =========================
-// أمر /start
-// =========================
+// =======================
+// ملفات الصوت
+// =======================
 
-bot.onText(/\/start/, (msg) => {
+const audioFolder =
+  './audio';
 
-  const chatId = msg.chat.id;
+const audioFiles =
+  fs.readdirSync(audioFolder)
+    .filter(file =>
+      file.endsWith('.mp3')
+    );
 
-  if (!subscribers.includes(chatId)) {
 
-    subscribers.push(chatId);
+// =======================
+// صوت عشوائي
+// =======================
 
-  }
+function getRandomAudio() {
 
-  bot.sendMessage(
-    chatId,
-    '🌸 تم الاشتراك في الأذكار بنجاح\n\n' +
-    getRandomDhikr()
+  const randomIndex =
+    Math.floor(
+      Math.random() *
+      audioFiles.length
+    );
+
+  return path.join(
+    audioFolder,
+    audioFiles[randomIndex]
   );
 
-});
+}
 
 
-// =========================
-// أي رسالة
-// =========================
+// =======================
+// أمر start
+// =======================
 
-bot.on('message', (msg) => {
+bot.onText(
+  /\/start/,
+  (msg) => {
 
-  const chatId = msg.chat.id;
+    const chatId =
+      msg.chat.id;
 
-  if (!subscribers.includes(chatId)) {
+    if (
+      !subscribers.includes(chatId)
+    ) {
 
-    subscribers.push(chatId);
+      subscribers.push(chatId);
 
-  }
-
-  const dhikr = getRandomDhikr();
-
-  bot.sendMessage(chatId, dhikr);
-
-});
-
-
-// =========================
-// إرسال ذكر كل ساعتين
-// =========================
-
-cron.schedule('0 */2 * * *', () => {
-
-  console.log(
-    'Sending adhkar...'
-  );
-
-  const dhikr =
-    getRandomDhikr();
-
-  subscribers.forEach(chatId => {
+    }
 
     bot.sendMessage(
       chatId,
-      '🌸 ذكر جديد\n\n' + dhikr
+      '🌸 تم الاشتراك بنجاح\n\n' +
+      getRandomDhikr()
     );
 
-  });
+  }
+);
 
-});
+
+// =======================
+// الرد على أي رسالة
+// =======================
+
+bot.on(
+  'message',
+  (msg) => {
+
+    const chatId =
+      msg.chat.id;
+
+    if (
+      !subscribers.includes(chatId)
+    ) {
+
+      subscribers.push(chatId);
+
+    }
+
+    const dhikr =
+      getRandomDhikr();
+
+    bot.sendMessage(
+      chatId,
+      dhikr
+    );
+
+  }
+);
 
 
-// =========================
+// =======================
+// إرسال ذكر نصي
+// كل ساعتين
+// =======================
+
+cron.schedule(
+  '0 */2 * * *',
+  () => {
+
+    console.log(
+      'Sending text adhkar...'
+    );
+
+    const dhikr =
+      getRandomDhikr();
+
+    subscribers.forEach(
+      chatId => {
+
+        bot.sendMessage(
+          chatId,
+          '🌸 ذكر جديد\n\n' +
+          dhikr
+        );
+
+      }
+    );
+
+  }
+);
+
+
+// =======================
+// إرسال مقطع صوتي
+// بين كل ذكرين
+// =======================
+
+cron.schedule(
+  '0 1-23/2 * * *',
+  () => {
+
+    console.log(
+      'Sending audio adhkar...'
+    );
+
+    const audioFile =
+      getRandomAudio();
+
+    subscribers.forEach(
+      chatId => {
+
+        bot.sendAudio(
+          chatId,
+          audioFile,
+          {
+            caption:
+            '🎧 استمع لهذا الذكر'
+          }
+        );
+
+      }
+    );
+
+  }
+);
+
+
+// =======================
 // تشغيل
-// =========================
+// =======================
 
 console.log(
   'Telegram Dhikr Bot Running...'
