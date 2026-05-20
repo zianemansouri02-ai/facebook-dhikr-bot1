@@ -3,11 +3,6 @@ const fs = require('fs');
 const cron = require('node-cron');
 const path = require('path');
 
-
-// =======================
-// TOKEN
-// =======================
-
 const TOKEN =
 '8755315321:AAFrcFqGZC1vWiOB9JhPd5zpBt7k9TKLWEc';
 
@@ -16,26 +11,29 @@ const TOKEN =
 // تشغيل البوت
 // =======================
 
-const bot = new TelegramBot(
-  TOKEN,
-  {
-    polling: true
+const bot = new TelegramBot(TOKEN, {
+  polling: {
+    interval: 300,
+    autoStart: true,
+    params: {
+      timeout: 10
+    }
   }
-);
+});
+
+bot.deleteWebHook();
 
 
 // =======================
 // قراءة ملف الأذكار
 // =======================
 
-const rawData =
-  fs.readFileSync(
-    './adhkar.json',
-    'utf8'
-  );
+const rawData = fs.readFileSync(
+  './adhkar.json',
+  'utf8'
+);
 
-const adhkar =
-  JSON.parse(rawData);
+const adhkar = JSON.parse(rawData);
 
 
 // =======================
@@ -46,7 +44,7 @@ let subscribers = [];
 
 
 // =======================
-// استخراج جميع الأذكار
+// استخراج الأذكار
 // =======================
 
 function extractAllAdhkar() {
@@ -109,11 +107,10 @@ function getRandomDhikr() {
 
 
 // =======================
-// ملفات الصوت
+// الملفات الصوتية
 // =======================
 
-const audioFolder =
-  './audio';
+const audioFolder = './audio';
 
 const audioFiles =
   fs.readdirSync(audioFolder)
@@ -143,68 +140,61 @@ function getRandomAudio() {
 
 
 // =======================
-// أمر start
+// /start
 // =======================
 
-bot.onText(
-  /\/start/,
-  (msg) => {
+bot.onText(/\/start/, (msg) => {
 
-    const chatId =
-      msg.chat.id;
+  const chatId =
+    msg.chat.id;
 
-    if (
-      !subscribers.includes(chatId)
-    ) {
+  if (
+    !subscribers.includes(chatId)
+  ) {
 
-      subscribers.push(chatId);
-
-    }
-
-    bot.sendMessage(
-      chatId,
-      '🌸 تم الاشتراك بنجاح\n\n' +
-      getRandomDhikr()
-    );
+    subscribers.push(chatId);
 
   }
-);
+
+  bot.sendMessage(
+    chatId,
+    '🌸 تم الاشتراك في الأذكار بنجاح\n\n' +
+    getRandomDhikr()
+  );
+
+});
 
 
 // =======================
-// الرد على أي رسالة
+// الرد على الرسائل
 // =======================
 
-bot.on(
-  'message',
-  (msg) => {
+bot.on('message', (msg) => {
 
-    const chatId =
-      msg.chat.id;
+  const chatId =
+    msg.chat.id;
 
-    if (
-      !subscribers.includes(chatId)
-    ) {
+  if (
+    !subscribers.includes(chatId)
+  ) {
 
-      subscribers.push(chatId);
-
-    }
-
-    const dhikr =
-      getRandomDhikr();
-
-    bot.sendMessage(
-      chatId,
-      dhikr
-    );
+    subscribers.push(chatId);
 
   }
-);
+
+  const dhikr =
+    getRandomDhikr();
+
+  bot.sendMessage(
+    chatId,
+    dhikr
+  );
+
+});
 
 
 // =======================
-// إرسال ذكر نصي
-// كل ساعتين
+// إرسال ذكر نصي كل ساعتين
 // =======================
 
 cron.schedule(
@@ -235,8 +225,7 @@ cron.schedule(
 
 
 // =======================
-// إرسال مقطع صوتي
-// بين كل ذكرين
+// إرسال صوت كل ساعتين
 // =======================
 
 cron.schedule(
@@ -258,7 +247,7 @@ cron.schedule(
           audioFile,
           {
             caption:
-            '🎧 استمع لهذا الذكر'
+              '🎧 استمع لهذا الذكر'
           }
         );
 
