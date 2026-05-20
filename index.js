@@ -76,7 +76,11 @@ async function startBot() {
       drop_pending_updates: true
     });
 
-    await bot.startPolling();
+    setTimeout(async () => {
+
+      await bot.startPolling();
+
+    }, 5000);
 
     console.log(
       'Telegram Dhikr Bot Running...'
@@ -247,6 +251,42 @@ function getRandomAudio() {
 
 
 // =======================
+// حفظ مشترك
+// =======================
+
+async function saveSubscriber(chatId) {
+
+  if (
+    !subscribers.includes(chatId)
+  ) {
+
+    subscribers.push(chatId);
+
+    try {
+
+      await db
+        .collection('subscribers')
+        .doc(chatId.toString())
+        .set({
+          chatId
+        });
+
+      console.log(
+        `Subscriber saved: ${chatId}`
+      );
+
+    } catch (err) {
+
+      console.log(err);
+
+    }
+
+  }
+
+}
+
+
+// =======================
 // /start
 // =======================
 
@@ -257,33 +297,54 @@ bot.onText(
     const chatId =
       msg.chat.id;
 
-    if (
-      !subscribers.includes(chatId)
-    ) {
-
-      subscribers.push(chatId);
-
-      try {
-
-        await db
-          .collection('subscribers')
-          .doc(chatId.toString())
-          .set({
-            chatId
-          });
-
-      } catch (err) {
-
-        console.log(err);
-
-      }
-
-    }
+    await saveSubscriber(chatId);
 
     bot.sendMessage(
       chatId,
       '🌸 تم الاشتراك بنجاح\n\n' +
       'سيتم إرسال الأذكار والمقاطع الصوتية تلقائيًا ❤️'
+    );
+
+  }
+);
+
+
+// =======================
+// المجموعات
+// =======================
+
+bot.on(
+  'new_chat_members',
+  async msg => {
+
+    const chatId =
+      msg.chat.id;
+
+    await saveSubscriber(chatId);
+
+    console.log(
+      `Group subscribed: ${chatId}`
+    );
+
+  }
+);
+
+
+// =======================
+// القنوات
+// =======================
+
+bot.on(
+  'channel_post',
+  async msg => {
+
+    const chatId =
+      msg.chat.id;
+
+    await saveSubscriber(chatId);
+
+    console.log(
+      `Channel subscribed: ${chatId}`
     );
 
   }
