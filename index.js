@@ -1,39 +1,90 @@
+const express = require('express');
 const TelegramBot = require('node-telegram-bot-api');
 const fs = require('fs');
 const cron = require('node-cron');
 const path = require('path');
 
+
+// =======================
+// Express Server
+// =======================
+
+const app = express();
+
+const PORT =
+  process.env.PORT || 10000;
+
+app.get('/', (req, res) => {
+
+  res.send('Bot is running');
+
+});
+
+app.listen(PORT, () => {
+
+  console.log(
+    `Server running on port ${PORT}`
+  );
+
+});
+
+
+// =======================
+// Telegram
+// =======================
+
 const TOKEN =
 '8755315321:AAFrcFqGZC1vWiOB9JhPd5zpBt7k9TKLWEc';
 
-
-// =======================
-// تشغيل البوت
-// =======================
-
-const bot = new TelegramBot(TOKEN, {
-  polling: {
-    interval: 300,
-    autoStart: true,
-    params: {
-      timeout: 10
-    }
+const bot = new TelegramBot(
+  TOKEN,
+  {
+    polling: false
   }
-});
-
-bot.deleteWebHook();
-
-
-// =======================
-// قراءة ملف الأذكار
-// =======================
-
-const rawData = fs.readFileSync(
-  './adhkar.json',
-  'utf8'
 );
 
-const adhkar = JSON.parse(rawData);
+
+// =======================
+// تنظيف الجلسات القديمة
+// =======================
+
+async function startBot() {
+
+  try {
+
+    await bot.deleteWebHook({
+      drop_pending_updates: true
+    });
+
+    await bot.startPolling();
+
+    console.log(
+      'Telegram Dhikr Bot Running...'
+    );
+
+  } catch (err) {
+
+    console.log(err);
+
+  }
+
+}
+
+startBot();
+
+
+// =======================
+// قراءة الأذكار
+// =======================
+
+const rawData =
+  fs.readFileSync(
+    './adhkar.json',
+    'utf8'
+  );
+
+const adhkar =
+  JSON.parse(rawData);
 
 
 // =======================
@@ -87,7 +138,6 @@ const allAdhkar =
 function getRandomDhikr() {
 
   if (
-    !allAdhkar ||
     allAdhkar.length === 0
   ) {
 
@@ -110,7 +160,8 @@ function getRandomDhikr() {
 // الملفات الصوتية
 // =======================
 
-const audioFolder = './audio';
+const audioFolder =
+  './audio';
 
 const audioFiles =
   fs.readdirSync(audioFolder)
@@ -143,7 +194,7 @@ function getRandomAudio() {
 // /start
 // =======================
 
-bot.onText(/\/start/, (msg) => {
+bot.onText(/\/start/, msg => {
 
   const chatId =
     msg.chat.id;
@@ -158,7 +209,7 @@ bot.onText(/\/start/, (msg) => {
 
   bot.sendMessage(
     chatId,
-    '🌸 تم الاشتراك في الأذكار بنجاح\n\n' +
+    '🌸 تم الاشتراك بنجاح\n\n' +
     getRandomDhikr()
   );
 
@@ -169,7 +220,7 @@ bot.onText(/\/start/, (msg) => {
 // الرد على الرسائل
 // =======================
 
-bot.on('message', (msg) => {
+bot.on('message', msg => {
 
   const chatId =
     msg.chat.id;
@@ -194,7 +245,7 @@ bot.on('message', (msg) => {
 
 
 // =======================
-// إرسال ذكر نصي كل ساعتين
+// ذكر نصي كل ساعتين
 // =======================
 
 cron.schedule(
@@ -225,7 +276,7 @@ cron.schedule(
 
 
 // =======================
-// إرسال صوت كل ساعتين
+// صوت كل ساعتين
 // =======================
 
 cron.schedule(
@@ -255,13 +306,4 @@ cron.schedule(
     );
 
   }
-);
-
-
-// =======================
-// تشغيل
-// =======================
-
-console.log(
-  'Telegram Dhikr Bot Running...'
 );
