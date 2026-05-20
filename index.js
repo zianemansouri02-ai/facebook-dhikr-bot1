@@ -210,35 +210,7 @@ bot.onText(/\/start/, msg => {
   bot.sendMessage(
     chatId,
     '🌸 تم الاشتراك بنجاح\n\n' +
-    getRandomDhikr()
-  );
-
-});
-
-
-// =======================
-// الرد على الرسائل
-// =======================
-
-bot.on('message', msg => {
-
-  const chatId =
-    msg.chat.id;
-
-  if (
-    !subscribers.includes(chatId)
-  ) {
-
-    subscribers.push(chatId);
-
-  }
-
-  const dhikr =
-    getRandomDhikr();
-
-  bot.sendMessage(
-    chatId,
-    dhikr
+    'سيتم إرسال الأذكار والمقاطع الصوتية تلقائيًا ❤️'
   );
 
 });
