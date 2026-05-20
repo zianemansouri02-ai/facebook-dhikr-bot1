@@ -1,30 +1,13 @@
-const express = require("express");
-const bodyParser = require("body-parser");
-const axios = require("axios");
-const fs = require("fs");
-const cron = require("node-cron");
+const TelegramBot = require('node-telegram-bot-api');
+const fs = require('fs');
+const cron = require('node-cron');
 
-const admin = require("firebase-admin");
+const TOKEN =
+'8755315321:AAFrcFqGZC1vWiOB9JhPd5zpBt7k9TKLWEc';
 
-const firebaseConfig = JSON.parse(
-  process.env.FIREBASE_CONFIG
-);
-
-admin.initializeApp({
-  credential: admin.credential.cert(firebaseConfig)
+const bot = new TelegramBot(TOKEN, {
+  polling: true
 });
-
-const db = admin.firestore();
-
-const app = express();
-
-app.use(bodyParser.json());
-
-const PAGE_ACCESS_TOKEN =
-  process.env.PAGE_ACCESS_TOKEN;
-
-const VERIFY_TOKEN =
-  "dhikr_verify_token";
 
 
 // =========================
@@ -32,8 +15,15 @@ const VERIFY_TOKEN =
 // =========================
 
 const adhkar = JSON.parse(
-  fs.readFileSync("./adhkar.json", "utf8")
+  fs.readFileSync('./adhkar.json', 'utf8')
 );
+
+
+// =========================
+// المشتركين
+// =========================
+
+let subscribers = [];
 
 
 // =========================
@@ -67,7 +57,7 @@ function getRandomDhikr() {
 
   if (allAdhkar.length === 0) {
 
-    return "سبحان الله";
+    return 'سبحان الله';
 
   }
 
@@ -80,202 +70,78 @@ function getRandomDhikr() {
 
 
 // =========================
-// إرسال رسالة Messenger
+// أمر /start
 // =========================
 
-async function sendMessage(
-  recipientId,
-  text
-) {
+bot.onText(/\/start/, (msg) => {
 
-  try {
+  const chatId = msg.chat.id;
 
-    await axios.post(
-      "https://graph.facebook.com/v19.0/me/messages",
-      {
-        recipient: {
-          id: recipientId
-        },
-        message: {
-          text: text
-        }
-      },
-      {
-        params: {
-          access_token: PAGE_ACCESS_TOKEN
-        }
-      }
-    );
+  if (!subscribers.includes(chatId)) {
 
-    console.log(
-      "Message sent to:",
-      recipientId
-    );
-
-  } catch (error) {
-
-    console.log(
-      "Send Error:",
-      error.response?.data ||
-      error.message
-    );
+    subscribers.push(chatId);
 
   }
-}
 
-
-// =========================
-// الصفحة الرئيسية
-// =========================
-
-app.get("/", (req, res) => {
-
-  res.send("Dhikr Bot Working");
-
-});
-
-
-// =========================
-// Webhook Verification
-// =========================
-
-app.get("/webhook", (req, res) => {
-
-  const mode =
-    req.query["hub.mode"];
-
-  const token =
-    req.query["hub.verify_token"];
-
-  const challenge =
-    req.query["hub.challenge"];
-
-  if (
-    mode &&
-    token === VERIFY_TOKEN
-  ) {
-
-    console.log(
-      "Webhook verified"
-    );
-
-    res.status(200).send(challenge);
-
-  } else {
-
-    res.sendStatus(403);
-
-  }
-});
-
-
-// =========================
-// استقبال الرسائل
-// =========================
-
-app.post("/webhook", async (
-  req,
-  res
-) => {
-
-  const body = req.body;
-
-  if (body.object === "page") {
-
-    for (const entry of body.entry) {
-
-      const webhookEvent =
-        entry.messaging[0];
-
-      const senderId =
-        webhookEvent.sender.id;
-
-      // حفظ المشترك في Firebase
-      await db
-        .collection("subscribers")
-        .doc(senderId)
-        .set({
-          subscribed: true,
-          createdAt: Date.now()
-        });
-
-      console.log(
-        "Subscriber saved:",
-        senderId
-      );
-
-      // إرسال ذكر مباشر
-      const dhikr =
-        getRandomDhikr();
-
-      await sendMessage(
-        senderId,
-        "🌸 تم الاشتراك بنجاح\n\n" +
-        dhikr
-      );
-    }
-
-    res.status(200).send(
-      "EVENT_RECEIVED"
-    );
-
-  } else {
-
-    res.sendStatus(404);
-
-  }
-});
-
-
-// =========================
-// إرسال أذكار كل ساعة
-// =========================
-
-cron.schedule(
-  "0 * * * *",
-  async () => {
-
-    console.log(
-      "Sending adhkar to subscribers..."
-    );
-
-    const snapshot =
-      await db
-      .collection("subscribers")
-      .get();
-
-    const dhikr =
-      getRandomDhikr();
-
-    for (const doc of snapshot.docs) {
-
-      const userId = doc.id;
-
-      await sendMessage(
-        userId,
-        dhikr
-      );
-    }
-
-    console.log(
-      "All adhkar sent"
-    );
-
-  }
-);
-
-
-// =========================
-// تشغيل السيرفر
-// =========================
-
-const PORT =
-  process.env.PORT || 10000;
-
-app.listen(PORT, () => {
-
-  console.log(
-    `Bot running on port ${PORT}`
+  bot.sendMessage(
+    chatId,
+    '🌸 تم الاشتراك في الأذكار بنجاح\n\n' +
+    getRandomDhikr()
   );
 
 });
+
+
+// =========================
+// أي رسالة
+// =========================
+
+bot.on('message', (msg) => {
+
+  const chatId = msg.chat.id;
+
+  if (!subscribers.includes(chatId)) {
+
+    subscribers.push(chatId);
+
+  }
+
+  const dhikr = getRandomDhikr();
+
+  bot.sendMessage(chatId, dhikr);
+
+});
+
+
+// =========================
+// إرسال ذكر كل ساعتين
+// =========================
+
+cron.schedule('0 */2 * * *', () => {
+
+  console.log(
+    'Sending adhkar...'
+  );
+
+  const dhikr =
+    getRandomDhikr();
+
+  subscribers.forEach(chatId => {
+
+    bot.sendMessage(
+      chatId,
+      '🌸 ذكر جديد\n\n' + dhikr
+    );
+
+  });
+
+});
+
+
+// =========================
+// تشغيل
+// =========================
+
+console.log(
+  'Telegram Dhikr Bot Running...'
+);
