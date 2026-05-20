@@ -21,8 +21,7 @@ admin.initializeApp({
     )
 });
 
-const db =
-  admin.firestore();
+const db = admin.firestore();
 
 
 // =======================
@@ -80,11 +79,11 @@ async function startBot() {
 
       await bot.startPolling();
 
-    }, 5000);
+      console.log(
+        'Telegram Dhikr Bot Running...'
+      );
 
-    console.log(
-      'Telegram Dhikr Bot Running...'
-    );
+    }, 5000);
 
   } catch (err) {
 
@@ -112,7 +111,7 @@ const adhkar =
 
 
 // =======================
-// المشتركين
+// المشتركون
 // =======================
 
 let subscribers = [];
@@ -155,102 +154,6 @@ loadSubscribers();
 
 
 // =======================
-// استخراج الأذكار
-// =======================
-
-function extractAllAdhkar() {
-
-  let all = [];
-
-  adhkar.forEach(category => {
-
-    if (
-      category.array &&
-      Array.isArray(category.array)
-    ) {
-
-      category.array.forEach(item => {
-
-        if (item.text) {
-
-          all.push(item.text);
-
-        }
-
-      });
-
-    }
-
-  });
-
-  return all;
-
-}
-
-const allAdhkar =
-  extractAllAdhkar();
-
-
-// =======================
-// ذكر عشوائي
-// =======================
-
-function getRandomDhikr() {
-
-  if (
-    allAdhkar.length === 0
-  ) {
-
-    return 'سبحان الله';
-
-  }
-
-  const randomIndex =
-    Math.floor(
-      Math.random() *
-      allAdhkar.length
-    );
-
-  return allAdhkar[randomIndex];
-
-}
-
-
-// =======================
-// الملفات الصوتية
-// =======================
-
-const audioFolder =
-  './audio';
-
-const audioFiles =
-  fs.readdirSync(audioFolder)
-    .filter(file =>
-      file.endsWith('.mp3')
-    );
-
-
-// =======================
-// صوت عشوائي
-// =======================
-
-function getRandomAudio() {
-
-  const randomIndex =
-    Math.floor(
-      Math.random() *
-      audioFiles.length
-    );
-
-  return path.join(
-    audioFolder,
-    audioFiles[randomIndex]
-  );
-
-}
-
-
-// =======================
 // حفظ مشترك
 // =======================
 
@@ -282,6 +185,77 @@ async function saveSubscriber(chatId) {
     }
 
   }
+
+}
+
+
+// =======================
+// استخراج كل الأذكار
+// =======================
+
+function extractAllAdhkar() {
+
+  let all = [];
+
+  adhkar.forEach(category => {
+
+    if (
+      category.array &&
+      Array.isArray(category.array)
+    ) {
+
+      category.array.forEach(item => {
+
+        if (
+          item.text &&
+          item.audio
+        ) {
+
+          all.push({
+            text: item.text,
+            audio: item.audio
+          });
+
+        }
+
+      });
+
+    }
+
+  });
+
+  return all;
+
+}
+
+const allAdhkar =
+  extractAllAdhkar();
+
+
+// =======================
+// ذكر عشوائي
+// =======================
+
+function getRandomDhikr() {
+
+  if (
+    allAdhkar.length === 0
+  ) {
+
+    return {
+      text: 'سبحان الله',
+      audio: null
+    };
+
+  }
+
+  const randomIndex =
+    Math.floor(
+      Math.random() *
+      allAdhkar.length
+    );
+
+  return allAdhkar[randomIndex];
 
 }
 
@@ -352,7 +326,7 @@ bot.on(
 
 
 // =======================
-// ذكر نصي كل ساعتين
+// إرسال ذكر نصي كل ساعتين
 // =======================
 
 cron.schedule(
@@ -363,7 +337,7 @@ cron.schedule(
       'Sending text adhkar...'
     );
 
-    const dhikr =
+    const dhikrData =
       getRandomDhikr();
 
     subscribers.forEach(
@@ -374,7 +348,7 @@ cron.schedule(
           await bot.sendMessage(
             chatId,
             '🌸 ذكر جديد\n\n' +
-            dhikr
+            dhikrData.text
           );
 
         } catch (err) {
@@ -391,7 +365,7 @@ cron.schedule(
 
 
 // =======================
-// صوت كل ساعتين
+// إرسال الصوت كل ساعتين
 // =======================
 
 cron.schedule(
@@ -402,8 +376,17 @@ cron.schedule(
       'Sending audio adhkar...'
     );
 
+    const dhikrData =
+      getRandomDhikr();
+
+    if (!dhikrData.audio) {
+
+      return;
+
+    }
+
     const audioFile =
-      getRandomAudio();
+      '.' + dhikrData.audio;
 
     subscribers.forEach(
       async chatId => {
