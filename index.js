@@ -144,6 +144,13 @@ bot.onText(/\/start/, async (msg) => {
       "🌸 تم الاشتراك بنجاح\n\nسيتم إرسال الأذكار تلقائيًا ❤️"
     );
 
+    const dhikr = getRandomDhikr();
+
+    await bot.sendMessage(
+      chatId,
+      `📖 ${dhikr.category}\n\n${dhikr.text}`
+    );
+
   } catch (err) {
 
     console.log("START ERROR:");
@@ -158,12 +165,10 @@ bot.onText(/\/start/, async (msg) => {
 
 
 // ==========================
-// الرد على الرسائل
+// الرد على أي رسالة
 // ==========================
 
 bot.on("message", async (msg) => {
-
-  console.log(msg);
 
   const chatId = msg.chat.id;
 
@@ -177,6 +182,25 @@ bot.on("message", async (msg) => {
       chatId,
       `📖 ${dhikr.category}\n\n${dhikr.text}`
     );
+
+    if (dhikr.audio) {
+
+      const audioPath =
+        path.join(__dirname, dhikr.audio);
+
+      if (fs.existsSync(audioPath)) {
+
+        await bot.sendAudio(
+          chatId,
+          audioPath,
+          {
+            caption: "🎧 استمع لهذا الذكر"
+          }
+        );
+
+      }
+
+    }
 
   } catch (err) {
 
@@ -238,11 +262,6 @@ cron.schedule("0 */2 * * *", async () => {
 
       const dhikr = getRandomDhikr();
 
-      await bot.sendMessage(
-        chatId,
-        `📖 ${dhikr.category}\n\n${dhikr.text}`
-      );
-
       if (dhikr.audio) {
 
         const audioPath =
@@ -257,10 +276,6 @@ cron.schedule("0 */2 * * *", async () => {
               caption: "🎧 استمع لهذا الذكر"
             }
           );
-
-        } else {
-
-          console.log(`❌ Audio not found: ${audioPath}`);
 
         }
 
