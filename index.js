@@ -28,7 +28,8 @@ if (!token) {
 
 const bot = new TelegramBot(token, {
   polling: {
-    autoStart: false,
+    interval: 300,
+    autoStart: true,
     params: {
       timeout: 10
     }
