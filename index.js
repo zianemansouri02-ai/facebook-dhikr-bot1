@@ -12,55 +12,24 @@ const token = process.env.BOT_TOKEN;
 
 if (!token) {
 
-  console.log("❌ BOT_TOKEN غير موجود");
+  console.log("❌ BOT_TOKEN missing");
 
   process.exit(1);
 
 }
 
-
-
-
-
-// ==========================
-// إصلاح مشكلة 409 Conflict
-// ==========================
-
 const bot = new TelegramBot(token, {
-  polling: {
-    interval: 300,
-    autoStart: true,
-    params: {
-      timeout: 10
-    }
-  }
+  polling: true
 });
 
-async function startBot() {
+console.log("✅ Bot started");
 
-  try {
+bot.on("polling_error", (err) => {
 
-    await bot.stopPolling();
+  console.log("Polling Error:");
+  console.log(err.message);
 
-  } catch (e) {}
-
-  try {
-
-    await bot.deleteWebHook();
-
-  } catch (e) {}
-
-  bot.startPolling();
-
-  console.log("✅ Telegram polling started");
-
-}
-
-startBot();
-
-
-
-
+});
 
 const PORT = process.env.PORT || 10000;
 
@@ -151,29 +120,36 @@ function getRandomDhikr() {
 
 
 // ==========================
-// /start
+// أمر /start
 // ==========================
 
 bot.onText(/\/start/, async (msg) => {
 
   const chatId = msg.chat.id;
 
-  if (!subscribers.includes(chatId)) {
+  try {
 
-    subscribers.push(chatId);
+    if (!subscribers.includes(chatId)) {
 
-    saveSubscribers();
+      subscribers.push(chatId);
 
-    console.log(`✅ Subscriber saved: ${chatId}`);
+      saveSubscribers();
+
+      console.log(`✅ Subscriber saved: ${chatId}`);
+
+    }
+
+    await bot.sendMessage(
+      chatId,
+      "🌸 تم الاشتراك بنجاح\n\nسيتم إرسال الأذكار تلقائيًا ❤️"
+    );
+
+  } catch (err) {
+
+    console.log("START ERROR:");
+    console.log(err.message);
 
   }
-
-  await bot.sendMessage(
-    chatId,
-    `🌸 تم الاشتراك بنجاح
-
-سيتم إرسال الأذكار والمقاطع الصوتية تلقائيًا ❤️`
-  );
 
 });
 
@@ -187,6 +163,8 @@ bot.onText(/\/start/, async (msg) => {
 
 bot.on("message", async (msg) => {
 
+  console.log(msg);
+
   const chatId = msg.chat.id;
 
   if (msg.text === "/start") return;
@@ -197,13 +175,12 @@ bot.on("message", async (msg) => {
 
     await bot.sendMessage(
       chatId,
-      `📖 ${dhikr.category}
-
-${dhikr.text}`
+      `📖 ${dhikr.category}\n\n${dhikr.text}`
     );
 
   } catch (err) {
 
+    console.log("MESSAGE ERROR:");
     console.log(err.message);
 
   }
@@ -230,9 +207,7 @@ cron.schedule("0 * * * *", async () => {
 
       await bot.sendMessage(
         chatId,
-        `📖 ${dhikr.category}
-
-${dhikr.text}`
+        `📖 ${dhikr.category}\n\n${dhikr.text}`
       );
 
     } catch (err) {
@@ -265,9 +240,7 @@ cron.schedule("0 */2 * * *", async () => {
 
       await bot.sendMessage(
         chatId,
-        `📖 ${dhikr.category}
-
-${dhikr.text}`
+        `📖 ${dhikr.category}\n\n${dhikr.text}`
       );
 
       if (dhikr.audio) {
