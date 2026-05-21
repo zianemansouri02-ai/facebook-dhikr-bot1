@@ -11,13 +11,55 @@ const app = express();
 const token = process.env.BOT_TOKEN;
 
 if (!token) {
+
   console.log("❌ BOT_TOKEN غير موجود");
+
   process.exit(1);
+
 }
 
+
+
+
+
+// ==========================
+// إصلاح مشكلة 409 Conflict
+// ==========================
+
 const bot = new TelegramBot(token, {
-  polling: true
+  polling: {
+    autoStart: false,
+    params: {
+      timeout: 10
+    }
+  }
 });
+
+async function startBot() {
+
+  try {
+
+    await bot.stopPolling();
+
+  } catch (e) {}
+
+  try {
+
+    await bot.deleteWebHook();
+
+  } catch (e) {}
+
+  bot.startPolling();
+
+  console.log("✅ Telegram polling started");
+
+}
+
+startBot();
+
+
+
+
 
 const PORT = process.env.PORT || 10000;
 
@@ -43,7 +85,7 @@ console.log("✅ adhkar.json loaded");
 
 
 // ==========================
-// ملف حفظ المشتركين
+// ملف المشتركين
 // ==========================
 
 const subscribersFile = "subscribers.json";
@@ -125,9 +167,11 @@ bot.onText(/\/start/, async (msg) => {
 
   }
 
-  bot.sendMessage(
+  await bot.sendMessage(
     chatId,
-    `🌸 تم الاشتراك بنجاح\n\nسيتم إرسال الأذكار والمقاطع الصوتية تلقائيًا ❤️`
+    `🌸 تم الاشتراك بنجاح
+
+سيتم إرسال الأذكار والمقاطع الصوتية تلقائيًا ❤️`
   );
 
 });
@@ -152,7 +196,9 @@ bot.on("message", async (msg) => {
 
     await bot.sendMessage(
       chatId,
-      `📖 ${dhikr.category}\n\n${dhikr.text}`
+      `📖 ${dhikr.category}
+
+${dhikr.text}`
     );
 
   } catch (err) {
@@ -183,7 +229,9 @@ cron.schedule("0 * * * *", async () => {
 
       await bot.sendMessage(
         chatId,
-        `📖 ${dhikr.category}\n\n${dhikr.text}`
+        `📖 ${dhikr.category}
+
+${dhikr.text}`
       );
 
     } catch (err) {
@@ -216,7 +264,9 @@ cron.schedule("0 */2 * * *", async () => {
 
       await bot.sendMessage(
         chatId,
-        `📖 ${dhikr.category}\n\n${dhikr.text}`
+        `📖 ${dhikr.category}
+
+${dhikr.text}`
       );
 
       if (dhikr.audio) {
@@ -257,7 +307,7 @@ cron.schedule("0 */2 * * *", async () => {
 
 
 // ==========================
-// تشغيل السيرفر
+// الصفحة الرئيسية
 // ==========================
 
 app.get("/", (req, res) => {
@@ -265,6 +315,14 @@ app.get("/", (req, res) => {
   res.send("✅ Telegram Dhikr Bot Running");
 
 });
+
+
+
+
+
+// ==========================
+// تشغيل السيرفر
+// ==========================
 
 app.listen(PORT, () => {
 
