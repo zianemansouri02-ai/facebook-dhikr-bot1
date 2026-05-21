@@ -26,7 +26,7 @@ console.log("✅ Bot started");
 
 bot.on("polling_error", (err) => {
 
-  console.log("Polling Error:");
+  console.log("❌ Polling Error:");
   console.log(err.message);
 
 });
@@ -120,6 +120,28 @@ function getRandomDhikr() {
 
 
 // ==========================
+// حفظ المشترك
+// ==========================
+
+function addSubscriber(chatId) {
+
+  if (!subscribers.includes(chatId)) {
+
+    subscribers.push(chatId);
+
+    saveSubscribers();
+
+    console.log(`✅ Subscriber saved: ${chatId}`);
+
+  }
+
+}
+
+
+
+
+
+// ==========================
 // أمر /start
 // ==========================
 
@@ -129,52 +151,12 @@ bot.onText(/\/start/, async (msg) => {
 
   try {
 
-    if (!subscribers.includes(chatId)) {
-
-      subscribers.push(chatId);
-
-      saveSubscribers();
-
-      console.log(`✅ Subscriber saved: ${chatId}`);
-
-    }
+    addSubscriber(chatId);
 
     await bot.sendMessage(
       chatId,
       "🌸 تم الاشتراك بنجاح\n\nسيتم إرسال الأذكار تلقائيًا ❤️"
     );
-
-    const dhikr = getRandomDhikr();
-
-    await bot.sendMessage(
-      chatId,
-      `📖 ${dhikr.category}\n\n${dhikr.text}`
-    );
-
-  } catch (err) {
-
-    console.log("START ERROR:");
-    console.log(err.message);
-
-  }
-
-});
-
-
-
-
-
-// ==========================
-// الرد على أي رسالة
-// ==========================
-
-bot.on("message", async (msg) => {
-
-  const chatId = msg.chat.id;
-
-  if (msg.text === "/start") return;
-
-  try {
 
     const dhikr = getRandomDhikr();
 
@@ -204,7 +186,92 @@ bot.on("message", async (msg) => {
 
   } catch (err) {
 
-    console.log("MESSAGE ERROR:");
+    console.log("❌ START ERROR:");
+    console.log(err.message);
+
+  }
+
+});
+
+
+
+
+
+// ==========================
+// الرد على الرسائل الخاصة والمجموعات
+// ==========================
+
+bot.on("message", async (msg) => {
+
+  const chatId = msg.chat.id;
+
+  if (msg.text === "/start") return;
+
+  try {
+
+    addSubscriber(chatId);
+
+    const dhikr = getRandomDhikr();
+
+    await bot.sendMessage(
+      chatId,
+      `📖 ${dhikr.category}\n\n${dhikr.text}`
+    );
+
+    if (dhikr.audio) {
+
+      const audioPath =
+        path.join(__dirname, dhikr.audio);
+
+      if (fs.existsSync(audioPath)) {
+
+        await bot.sendAudio(
+          chatId,
+          audioPath,
+          {
+            caption: "🎧 استمع لهذا الذكر"
+          }
+        );
+
+      }
+
+    }
+
+  } catch (err) {
+
+    console.log("❌ MESSAGE ERROR:");
+    console.log(err.message);
+
+  }
+
+});
+
+
+
+
+
+// ==========================
+// دعم القنوات
+// ==========================
+
+bot.on("channel_post", async (msg) => {
+
+  const chatId = msg.chat.id;
+
+  try {
+
+    addSubscriber(chatId);
+
+    const dhikr = getRandomDhikr();
+
+    await bot.sendMessage(
+      chatId,
+      `📖 ${dhikr.category}\n\n${dhikr.text}`
+    );
+
+  } catch (err) {
+
+    console.log("❌ CHANNEL ERROR:");
     console.log(err.message);
 
   }
@@ -236,6 +303,7 @@ cron.schedule("0 * * * *", async () => {
 
     } catch (err) {
 
+      console.log(`❌ Failed sending to ${chatId}`);
       console.log(err.message);
 
     }
@@ -273,9 +341,13 @@ cron.schedule("0 */2 * * *", async () => {
             chatId,
             audioPath,
             {
-              caption: "🎧 استمع لهذا الذكر"
+              caption: `🎧 ${dhikr.category}`
             }
           );
+
+        } else {
+
+          console.log(`❌ Audio not found: ${audioPath}`);
 
         }
 
@@ -283,6 +355,7 @@ cron.schedule("0 */2 * * *", async () => {
 
     } catch (err) {
 
+      console.log(`❌ Audio send failed to ${chatId}`);
       console.log(err.message);
 
     }
