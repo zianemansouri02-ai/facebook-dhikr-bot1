@@ -10,6 +10,11 @@ const app = express();
 
 const token = process.env.BOT_TOKEN;
 
+if (!token) {
+  console.log("❌ BOT_TOKEN غير موجود");
+  process.exit(1);
+}
+
 const bot = new TelegramBot(token, {
   polling: true
 });
@@ -31,6 +36,8 @@ const azkar = JSON.parse(
   )
 );
 
+console.log("✅ adhkar.json loaded");
+
 
 
 
@@ -51,7 +58,7 @@ if (fs.existsSync(subscribersFile)) {
 
 }
 
-console.log(`Loaded ${subscribers.length} subscribers`);
+console.log(`✅ Loaded ${subscribers.length} subscribers`);
 
 
 
@@ -80,51 +87,19 @@ function saveSubscribers() {
 
 function getRandomDhikr() {
 
-  const random =
+  const category =
     azkar[Math.floor(Math.random() * azkar.length)];
 
-  if (typeof random === "string") {
-    return random;
-  }
-
-  return (
-    random.zekr ||
-    random.text ||
-    random.content ||
-    "سبحان الله"
-  );
-
-}
-
-
-
-
-
-// ==========================
-// اختيار ملف صوتي عشوائي
-// ==========================
-
-function getRandomAudio() {
-
-  const audioFolder =
-    path.join(__dirname, "audio");
-
-  const files = fs.readdirSync(audioFolder);
-
-  const mp3Files = files.filter(file =>
-    file.endsWith(".mp3")
-  );
-
-  if (mp3Files.length === 0) {
-    return null;
-  }
-
-  const randomFile =
-    mp3Files[
-      Math.floor(Math.random() * mp3Files.length)
+  const item =
+    category.array[
+      Math.floor(Math.random() * category.array.length)
     ];
 
-  return path.join(audioFolder, randomFile);
+  return {
+    category: category.category,
+    text: item.text,
+    audio: item.audio
+  };
 
 }
 
@@ -133,7 +108,7 @@ function getRandomAudio() {
 
 
 // ==========================
-// أوامر البوت
+// /start
 // ==========================
 
 bot.onText(/\/start/, async (msg) => {
@@ -146,7 +121,7 @@ bot.onText(/\/start/, async (msg) => {
 
     saveSubscribers();
 
-    console.log(`Subscriber saved: ${chatId}`);
+    console.log(`✅ Subscriber saved: ${chatId}`);
 
   }
 
@@ -162,7 +137,7 @@ bot.onText(/\/start/, async (msg) => {
 
 
 // ==========================
-// إرسال ذكر عند أي رسالة
+// الرد على الرسائل
 // ==========================
 
 bot.on("message", async (msg) => {
@@ -171,9 +146,20 @@ bot.on("message", async (msg) => {
 
   if (msg.text === "/start") return;
 
-  const dhikr = getRandomDhikr();
+  try {
 
-  bot.sendMessage(chatId, dhikr);
+    const dhikr = getRandomDhikr();
+
+    await bot.sendMessage(
+      chatId,
+      `📖 ${dhikr.category}\n\n${dhikr.text}`
+    );
+
+  } catch (err) {
+
+    console.log(err.message);
+
+  }
 
 });
 
@@ -182,12 +168,12 @@ bot.on("message", async (msg) => {
 
 
 // ==========================
-// إرسال أذكار تلقائيًا كل ساعة
+// إرسال ذكر كل ساعة
 // ==========================
 
 cron.schedule("0 * * * *", async () => {
 
-  console.log("Sending adhkar...");
+  console.log("📖 Sending adhkar...");
 
   for (const chatId of subscribers) {
 
@@ -195,7 +181,10 @@ cron.schedule("0 * * * *", async () => {
 
       const dhikr = getRandomDhikr();
 
-      await bot.sendMessage(chatId, dhikr);
+      await bot.sendMessage(
+        chatId,
+        `📖 ${dhikr.category}\n\n${dhikr.text}`
+      );
 
     } catch (err) {
 
@@ -212,28 +201,46 @@ cron.schedule("0 * * * *", async () => {
 
 
 // ==========================
-// إرسال مقطع صوتي كل ساعتين
+// إرسال صوت كل ساعتين
 // ==========================
 
 cron.schedule("0 */2 * * *", async () => {
 
-  console.log("Sending audio adhkar...");
-
-  const audioFile = getRandomAudio();
-
-  if (!audioFile) return;
+  console.log("🎧 Sending audio adhkar...");
 
   for (const chatId of subscribers) {
 
     try {
 
-      await bot.sendAudio(
+      const dhikr = getRandomDhikr();
+
+      await bot.sendMessage(
         chatId,
-        audioFile,
-        {
-          caption: "🎧 استمع لهذا الذكر"
-        }
+        `📖 ${dhikr.category}\n\n${dhikr.text}`
       );
+
+      if (dhikr.audio) {
+
+        const audioPath =
+          path.join(__dirname, dhikr.audio);
+
+        if (fs.existsSync(audioPath)) {
+
+          await bot.sendAudio(
+            chatId,
+            audioPath,
+            {
+              caption: "🎧 استمع لهذا الذكر"
+            }
+          );
+
+        } else {
+
+          console.log(`❌ Audio not found: ${audioPath}`);
+
+        }
+
+      }
 
     } catch (err) {
 
@@ -255,14 +262,12 @@ cron.schedule("0 */2 * * *", async () => {
 
 app.get("/", (req, res) => {
 
-  res.send("Telegram Dhikr Bot Running...");
+  res.send("✅ Telegram Dhikr Bot Running");
 
 });
 
 app.listen(PORT, () => {
 
-  console.log(
-    `Server running on port ${PORT}`
-  );
+  console.log(`🚀 Server running on port ${PORT}`);
 
 });
